@@ -22,6 +22,8 @@ export default function PresentationView() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [socket, setSocket] = useState<any>(null)
   const [responses, setResponses] = useState<Record<string, any>>({})
+  const [showParticipantView, setShowParticipantView] = useState(false)
+  const [participants, setParticipants] = useState<string[]>([])
 
   useEffect(() => {
     // Load slides from localStorage
@@ -36,6 +38,15 @@ export default function PresentationView() {
         await fetch('/api/socket')
         const newSocket = io()
         setSocket(newSocket)
+
+        // Listen for participant updates
+        newSocket.on('participantJoined', (data) => {
+          setParticipants(prev => [...prev, data.name])
+        })
+
+        newSocket.on('participantLeft', (data) => {
+          setParticipants(prev => prev.filter(name => name !== data.name))
+        })
 
         newSocket.on('response', (data) => {
           setResponses(prev => ({
@@ -65,17 +76,40 @@ export default function PresentationView() {
 
   const nextSlide = () => {
     if (currentSlideIndex < slides.length - 1) {
-      setCurrentSlideIndex(currentSlideIndex + 1)
-      socket?.emit('slideChange', { presentationId: params.id, slideIndex: currentSlideIndex + 1 })
+      const newIndex = currentSlideIndex + 1
+      setCurrentSlideIndex(newIndex)
+      // Broadcast the current slide to all participants
+      socket?.emit('slideChange', { 
+        presentationId: params.id,
+        slideIndex: newIndex,
+        slide: slides[newIndex]  // Send the actual slide data
+      })
     }
   }
 
   const previousSlide = () => {
     if (currentSlideIndex > 0) {
-      setCurrentSlideIndex(currentSlideIndex - 1)
-      socket?.emit('slideChange', { presentationId: params.id, slideIndex: currentSlideIndex - 1 })
+      const newIndex = currentSlideIndex - 1
+      setCurrentSlideIndex(newIndex)
+      // Broadcast the current slide to all participants
+      socket?.emit('slideChange', { 
+        presentationId: params.id,
+        slideIndex: newIndex,
+        slide: slides[newIndex]  // Send the actual slide data
+      })
     }
   }
+
+  // When the presentation first loads, broadcast the initial slide
+  useEffect(() => {
+    if (slides.length > 0 && socket) {
+      socket.emit('slideChange', {
+        presentationId: params.id,
+        slideIndex: currentSlideIndex,
+        slide: slides[currentSlideIndex]
+      })
+    }
+  }, [slides, socket, params.id])
 
   if (!currentSlide) {
     return (
@@ -88,25 +122,37 @@ export default function PresentationView() {
   return (
     <div className="min-h-screen bg-gray-900 text-gray-200 p-6">
       <div className="max-w-4xl mx-auto">
-        {/* Navigation controls */}
         <div className="flex justify-between items-center mb-8">
-          <button
-            onClick={previousSlide}
-            disabled={currentSlideIndex === 0}
-            className="px-4 py-2 bg-gray-800 rounded disabled:opacity-50 hover:bg-gray-700"
-          >
-            Previous
-          </button>
-          <span className="text-xl">
-            Slide {currentSlideIndex + 1} of {slides.length}
-          </span>
-          <button
-            onClick={nextSlide}
-            disabled={currentSlideIndex === slides.length - 1}
-            className="px-4 py-2 bg-gray-800 rounded disabled:opacity-50 hover:bg-gray-700"
-          >
-            Next
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={previousSlide}
+              disabled={currentSlideIndex === 0}
+              className="px-4 py-2 bg-gray-800 rounded disabled:opacity-50 hover:bg-gray-700"
+            >
+              Previous
+            </button>
+            <span className="text-xl">
+              Slide {currentSlideIndex + 1} of {slides.length}
+            </span>
+            <button
+              onClick={nextSlide}
+              disabled={currentSlideIndex === slides.length - 1}
+              className="px-4 py-2 bg-gray-800 rounded disabled:opacity-50 hover:bg-gray-700"
+            >
+              Next
+            </button>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-gray-400">
+              {participants.length} participant{participants.length !== 1 ? 's' : ''} connected
+            </span>
+            <button
+              onClick={() => window.open(`/join/${params.id}`, '_blank')}
+              className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
+            >
+              Join as Participant
+            </button>
+          </div>
         </div>
 
         {/* Slide content */}

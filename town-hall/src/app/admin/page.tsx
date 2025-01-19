@@ -21,11 +21,13 @@ export default function AdminPage() {
   const [slides, setSlides] = useState<Slide[]>([])
   const [selectedSlide, setSelectedSlide] = useState<string | null>(null)
   const [presentationId, setPresentationId] = useState<string>('')
+  const [showShareLink, setShowShareLink] = useState(false)
+  const [participantLink, setParticipantLink] = useState('')
 
   const addSlide = () => {
     const newSlide: Slide = {
       id: uuidv4(),
-      title: `Slide ${slides.length + 1}`,
+      title: '',
     }
     setSlides([...slides, newSlide])
     setSelectedSlide(newSlide.id)
@@ -56,6 +58,13 @@ export default function AdminPage() {
     const id = uuidv4()
     setPresentationId(id)
     localStorage.setItem(`presentation_${id}`, JSON.stringify(slides))
+    
+    // Generate participant link
+    const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/join/${id}`
+    setParticipantLink(link)
+    setShowShareLink(true)
+    
+    // Open presenter view
     window.open(`/present/${id}`, '_blank')
   }
 
@@ -80,7 +89,9 @@ export default function AdminPage() {
                   : 'border-gray-700 hover:bg-gray-750'
               }`}
             >
-              <h3 className="font-medium text-gray-200">{slide.title}</h3>
+              <h3 className="font-medium text-gray-200">
+                {slide.title || <span className="text-gray-400">Untitled Slide</span>}
+              </h3>
               {slide.activity && (
                 <span className="text-sm text-gray-400">
                   {slide.activity.type.toUpperCase()}
@@ -101,7 +112,7 @@ export default function AdminPage() {
                 value={slides.find(s => s.id === selectedSlide)?.title || ''}
                 onChange={(e) => updateSlide(selectedSlide, { title: e.target.value })}
                 className="text-2xl font-bold w-full mb-4 p-2 rounded bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                placeholder="Slide Title"
+                placeholder="Write slide title here..."
               />
 
               {!slides.find(s => s.id === selectedSlide)?.activity ? (
@@ -186,6 +197,41 @@ export default function AdminPage() {
           >
             Launch Presentation
           </button>
+        </div>
+      )}
+
+      {/* Share Link Modal */}
+      {showShareLink && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-lg w-full">
+            <h3 className="text-xl font-bold mb-4 text-gray-200">Share with Participants</h3>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={participantLink}
+                  readOnly
+                  className="flex-1 p-2 bg-gray-700 border border-gray-600 rounded text-white"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(participantLink)
+                    // Add a visual confirmation that the link was copied
+                    alert('Link copied to clipboard!')
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Copy Link
+                </button>
+              </div>
+              <button
+                onClick={() => setShowShareLink(false)}
+                className="w-full py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
